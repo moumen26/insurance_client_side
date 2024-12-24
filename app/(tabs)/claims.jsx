@@ -9,6 +9,7 @@ import {
   SafeAreaView,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons"; // For the 'add' icon
+import ShimmerPlaceholder from "react-native-shimmer-placeholder";
 
 // Static mock data for claims (modified for patient info)
 const mockClaims = [
@@ -50,13 +51,12 @@ const ClaimSubmissionScreen = ({ navigation }) => {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Simulate fetching claims with static data
   const fetchClaims = async () => {
     try {
       setTimeout(() => {
-        setClaims(mockClaims); // Set static mock data after 1 second
+        setClaims(mockClaims);
         setLoading(false);
-      }, 1000); // Simulating network delay
+      }, 1000);
     } catch (error) {
       console.error("Error fetching claims:", error);
       setLoading(false);
@@ -64,10 +64,9 @@ const ClaimSubmissionScreen = ({ navigation }) => {
   };
 
   useEffect(() => {
-    fetchClaims(); // Simulated fetch call
+    fetchClaims();
   }, []);
 
-  // Render each claim item with a styled card layout
   const renderClaimItem = ({ item }) => (
     <TouchableOpacity
       style={styles.claimCard}
@@ -86,18 +85,32 @@ const ClaimSubmissionScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
+  const renderClaimItemLoading = ({ item }) => (
+    <ShimmerPlaceholder style={styles.claimCardLoading} />
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.welcomeBack}>Claim Submissions</Text>
       {/* If loading, show a loading message */}
       {loading ? (
-        <Text style={styles.loadingText}>Loading...</Text>
+        // <Text style={styles.loadingText}>Loading...</Text>
+        <View style={styles.loadingClass}>
+          <FlatList
+            data={claims}
+            renderItem={renderClaimItemLoading}
+            keyExtractor={(item) => item.claimNumber.toString()}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
       ) : (
         <FlatList
           data={claims}
           renderItem={renderClaimItem}
           keyExtractor={(item) => item.claimNumber.toString()}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
         />
       )}
     </SafeAreaView>
@@ -132,6 +145,18 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 5,
     marginHorizontal: 20,
+  },
+  loadingClass: {
+    width: "100%",
+    paddingRight: 20,
+    paddingLeft: 20,
+  },
+  claimCardLoading: {
+    backgroundColor: "red",
+    width: "100%",
+    height: "180",
+    borderRadius: 15,
+    marginBottom: 15,
   },
   claimTitle: {
     fontSize: 18,
