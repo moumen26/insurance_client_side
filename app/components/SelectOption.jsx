@@ -44,10 +44,10 @@ const SelectOption = ({ options, visible, onSelect }) => {
             data={options}
             renderItem={({ item }) => (
               <TouchableOpacity onPress={() => onSelect(item)}>
-                <Text style={styles.optionText}>{item}</Text>
+                <Text style={styles.optionText}>{item.userAssociation.fullname}</Text>
               </TouchableOpacity>
             )}
-            keyExtractor={(item) => item.toString()}
+            keyExtractor={(item) => item.id.toString()}
           />
         </Animated.View>
       </View>

@@ -20,14 +20,28 @@ import SelectOption from "../components/SelectOption";
 
 import { LinearGradient } from "expo-linear-gradient";
 import ProtectedScreen from "../util/ProtectedScreen";
+import useAuthContext from "../hooks/useAuthContext";
+import decodeJWT from "../util/tokenDecoder";
+import Config from "../config.jsx";
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+
+// Axios instance for base URL configuration
+const api = axios.create({
+  baseURL: Config.API_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
 const TabLayout = () => {
+  const { user } = useAuthContext();
+  const decodedToken = decodeJWT(user.token);
   const [scaleAnim] = useState(new Animated.Value(1));
   const [modalVisible, setModalVisible] = useState(false);
-  const [claimDetails, setClaimDetails] = useState("");
   const [showSelectOption, setShowSelectOption] = useState(false);
-
-  const [selectedServiceType, setSelectedServiceType] = useState("");
+  const [selectedMedicalServiceOption, setSelectedMedicalServiceOption] = useState(null);
+  const [claim_amount, setClaimAmount] = useState(0);
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -52,15 +66,85 @@ const TabLayout = () => {
     setClaimDetails(""); // Reset input on close
   };
 
-  const handleAddClaim = () => {
-    if (claimDetails) {
-      alert(`New claim added: ${claimDetails}`);
-      handleModalClose();
-    } else {
-      alert("Please provide claim details.");
+
+  //--------------------------------------------APIs--------------------------------------------
+  // Function to fetch medical services data
+  const fetchAllMedicalServicesData = async () => {
+    try {
+      const response = await api.get(`/medicalservice/all`, {
+        headers: {
+          Authorization: `Bearer ${user?.token}`,
+        },
+      });
+
+      // Check if the response is valid
+      if (response.status !== 200) {
+        const errorData = await response.data;
+        if (errorData.error.statusCode == 404) {
+          return []; // Return an empty array for 404 errors
+        } else {
+          throw new Error("Error receiving medical services data");
+        }
+      }
+
+      // Return the data from the response
+      return await response.data;
+    } catch (error) {
+      // Handle if the request fails with status code 401 or 404
+      if (error?.response?.status === 401 || error?.response?.status === 404) {
+        return []; // Return an empty array for 401 and 404 errors
+      }
+      throw new Error(error?.message || "Network error");
     }
   };
+  const {
+    data: AllMedicalServicesData,
+    error: AllMedicalServicesDataError,
+    isLoading: AllMedicalServicesDataLoading,
+    refetch: AllMedicalServicesDataRefetch,
+  } = useQuery({
+    queryKey: ["AllMedicalServicesData", user?.token], // Ensure token is part of the query key
+    queryFn: fetchAllMedicalServicesData, // Pass token to the fetch function
+    enabled: !!user?.token, // Only run the query if user is authenticated
+    refetchInterval: 10000, // Refetch every 10 seconds
+    refetchOnWindowFocus: true, // Optional: refetching on window focus for React Native
+  });
+  
+  const [userName, setUserName] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const { dispatch } = useAuthContext();
 
+  const handleNewClaim = async () => {
+    setError("");
+    try {
+      const response = await fetch(`${Config.API_URL}/claim/client/new/${decodedToken?.id}`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json", 
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({
+          medicalservice: selectedMedicalServiceOption?.id,
+          claim_amount: claim_amount,
+        }),
+      });
+
+      const json = await response.json();
+
+      if (!response.ok) {
+        setError(json.message);
+      } else {
+        //close modal
+        setModalVisible(false);
+        alert(json.message);
+        setError("");
+      }
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+      console.log(err);
+    }
+  };
   return (
     <ProtectedScreen>
       <Tabs
@@ -134,58 +218,77 @@ const TabLayout = () => {
         animationType="fade"
         onRequestClose={handleModalClose}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add New Claim</Text>
+        {!AllMedicalServicesDataLoading ?
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Add New Claim</Text>
 
-            <Text style={styles.inputLabel}>Service Type:</Text>
-            <TouchableOpacity
-              style={styles.selectOption}
-              onPress={() => setShowSelectOption(true)}
-            >
-              <Text style={styles.textlabel}>Select Service Type</Text>
-              <ChevronDownIcon size={15} color="#043146" />
-            </TouchableOpacity>
-            <SelectOption
-              options={["Option 1", "Option 2", "Option 3"]}
-              visible={showSelectOption}
-              onSelect={(option) => {
-                // setSelectedOption(option);
-                setShowSelectOption(false);
-              }}
-            />
-
-            <Text style={styles.inputLabel}>Claim Amount:</Text>
-            <View
-              className="flex-row items-center"
-              style={styles.passwordContainer}
-            >
-              <Text style={styles.textlabel}>Da</Text>
-              <TextInput
-                style={styles.textlabel}
-                placeholder="Claim Amount"
-                keyboardType="numeric"
-                // value={newClaim.claimAmount}
-                // onChangeText={(text) => setNewClaim({ ...newClaim, claimAmount: text })}
+              <Text style={styles.inputLabel}>Service Type:</Text>
+              <TouchableOpacity
+                style={styles.selectOption}
+                onPress={() => setShowSelectOption(true)}
+              >
+                <Text style={styles.textlabel}>{selectedMedicalServiceOption?.userAssociation?.fullname ||
+                'Select Service Type'
+                }</Text>
+                <ChevronDownIcon size={15} color="#043146" />
+              </TouchableOpacity>
+              <SelectOption
+                options={AllMedicalServicesData?.length > 0 ? AllMedicalServicesData : []}
+                visible={showSelectOption}
+                onSelect={(option) => {
+                  setSelectedMedicalServiceOption(option);
+                  setShowSelectOption(false);
+                }}
               />
-            </View>
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setModalVisible(false)}
+              <Text style={styles.inputLabel}>Claim Amount:</Text>
+              <View
+                className="flex-row items-center"
+                style={styles.passwordContainer}
               >
-                <Text style={styles.buttonTextCancel}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleAddClaim}
+                <Text style={styles.textlabel}>Da</Text>
+                <TextInput
+                  style={styles.textlabel}
+                  placeholder="Claim Amount"
+                  keyboardType="numeric"
+                  value={claim_amount}
+                  onChangeText={setClaimAmount}
+                />
+              </View>
+              <Text
+                style={{
+                  display: error ? "flex" : "none",
+                  textAlign: "center",
+                  color: "red",
+                  width: "100%",
+                }}
               >
-                <Text style={styles.buttonText}>Save</Text>
-              </TouchableOpacity>
+                {error}
+              </Text>
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Text style={styles.buttonTextCancel}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={handleNewClaim}  
+                >
+                  <Text 
+                    style={styles.buttonText}
+                  >Save</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
+          :
+          <View style={styles.modalOverlay}>
+            <Text>Loading...</Text>
+          </View>
+        }
       </Modal>
     </ProtectedScreen>
 
