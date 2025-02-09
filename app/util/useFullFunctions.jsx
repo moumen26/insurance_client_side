@@ -6,7 +6,7 @@ const formatDate = (dateString) => {
   moment.locale("fr");
 
   return moment
-    .utc(dateString, inputFormat, true)
+    .utc(moment(dateString), inputFormat, true)
     .format("D MMMM YYYY [at] HH:mm:ss");
 };
 const orderStatusTextDisplayer = (status, type) => {

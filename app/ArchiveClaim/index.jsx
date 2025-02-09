@@ -25,7 +25,7 @@ const api = axios.create({
   },
 });
 
-const ClaimSubmissionScreen = ({ navigation }) => {
+const ArchiveClaim = ({ navigation }) => {
   const { user } = useAuthContext();
   const decodedToken = decodeJWT(user?.token);
 
@@ -55,9 +55,9 @@ const ClaimSubmissionScreen = ({ navigation }) => {
 
   //--------------------------------------------APIs--------------------------------------------
   // Function to fetch medical services data
-  const fetchAllClaimsData = async () => {
+  const fetchAllArchiveClaimsData = async () => {
     try {
-      const response = await api.get(`/claim/client/all/${decodedToken?.id}`, {
+      const response = await api.get(`/claim/client/archived/${decodedToken?.id}`, {
         headers: {
           Authorization: `Bearer ${user?.token}`,
         },
@@ -84,13 +84,13 @@ const ClaimSubmissionScreen = ({ navigation }) => {
     }
   };
   const {
-    data: AllClaimsData,
-    error: AllClaimsDataError,
-    isLoading: AllClaimsDataLoading,
-    refetch: AllClaimsDataRefetch,
+    data: AllArchiveClaimsData,
+    error: AllArchiveClaimsDataError,
+    isLoading: AllArchiveClaimsDataLoading,
+    refetch: AllArchiveClaimsDataRefetch,
   } = useQuery({
-    queryKey: ["AllClaimsData", user?.token], // Ensure token is part of the query key
-    queryFn: fetchAllClaimsData, // Pass token to the fetch function
+    queryKey: ["AllArchiveClaimsData", user?.token], // Ensure token is part of the query key
+    queryFn: fetchAllArchiveClaimsData, // Pass token to the fetch function
     enabled: !!user?.token, // Only run the query if user is authenticated
     refetchInterval: 1000, // Refetch every 10 seconds
     refetchOnWindowFocus: true, // Optional: refetching on window focus for React Native
@@ -102,12 +102,12 @@ const ClaimSubmissionScreen = ({ navigation }) => {
       style={styles.topScreen}>
         <View style={styles.Vide}></View>
         <Text className="text-center" style={styles.welcomeBack}>
-          My claims
+          My archive
         </Text>
         <ArchiveButton />
       </View>
       {/* If loading, show a loading message */}
-      {AllClaimsDataLoading ? (
+      {AllArchiveClaimsDataLoading ? (
         <View style={styles.loadingClass}>
           <FlatList
             data={[]}
@@ -119,7 +119,7 @@ const ClaimSubmissionScreen = ({ navigation }) => {
         </View>
       ) : (
         <FlatList
-          data={AllClaimsData}
+          data={AllArchiveClaimsData}
           renderItem={renderClaimItem}
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.list}
@@ -346,4 +346,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ClaimSubmissionScreen;
+export default ArchiveClaim;

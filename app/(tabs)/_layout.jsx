@@ -36,7 +36,7 @@ const api = axios.create({
 
 const TabLayout = () => {
   const { user } = useAuthContext();
-  const decodedToken = decodeJWT(user.token);
+  const decodedToken = decodeJWT(user?.token);
   const [scaleAnim] = useState(new Animated.Value(1));
   const [modalVisible, setModalVisible] = useState(false);
   const [showSelectOption, setShowSelectOption] = useState(false);
