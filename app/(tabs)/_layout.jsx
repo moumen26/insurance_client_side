@@ -6,7 +6,6 @@ import {
   PlusIcon,
   ChevronDownIcon,
 } from "react-native-heroicons/solid";
-import RNPickerSelect from "react-native-picker-select";
 import {
   View,
   Animated,
@@ -20,7 +19,7 @@ import {
 import SelectOption from "../components/SelectOption";
 
 import { LinearGradient } from "expo-linear-gradient";
-import { Picker } from "@react-native-picker/picker"; // Import the Picker component
+import ProtectedScreen from "../util/ProtectedScreen";
 
 const TabLayout = () => {
   const [scaleAnim] = useState(new Animated.Value(1));
@@ -63,7 +62,7 @@ const TabLayout = () => {
   };
 
   return (
-    <>
+    <ProtectedScreen>
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: "#009ff5",
@@ -151,7 +150,7 @@ const TabLayout = () => {
               options={["Option 1", "Option 2", "Option 3"]}
               visible={showSelectOption}
               onSelect={(option) => {
-                setSelectedOption(option);
+                // setSelectedOption(option);
                 setShowSelectOption(false);
               }}
             />
@@ -188,7 +187,8 @@ const TabLayout = () => {
           </View>
         </View>
       </Modal>
-    </>
+    </ProtectedScreen>
+
   );
 };
 

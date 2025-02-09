@@ -1,5 +1,8 @@
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
+import { AuthContextProvider } from "./context/Authcontext.jsx";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+const queryClient = new QueryClient();
 
 export default function RootLayout() {
   useFonts({
@@ -8,26 +11,37 @@ export default function RootLayout() {
     "Montserrat-Bold": require("../assets/fonts/Montserrat-Bold.ttf"),
   });
   return (
-    <Stack>
-      <Stack.Screen
-        name="(tabs)"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen name="index" />
-      <Stack.Screen
-        name="Login/index"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="SignUp/index"
-        options={{
-          headerShown: false,
-        }}
-      />
-    </Stack>
+    <QueryClientProvider client={queryClient}>
+      <AuthContextProvider>
+        <Stack>
+          {/* Unprotected Screens */}
+          <Stack.Screen
+            name="index"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="Login/index"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="SignUp/index"
+            options={{
+              headerShown: false,
+            }}
+          />
+          {/* Protected Screens */}
+          <Stack.Screen
+            name="(tabs)"
+            options={{
+              headerShown: false,
+            }}
+          />
+        </Stack>
+      </AuthContextProvider>
+    </QueryClientProvider>
   );
 }

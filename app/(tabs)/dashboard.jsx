@@ -6,8 +6,10 @@ import {
   CheckBadgeIcon,
   ExclamationCircleIcon,
 } from "react-native-heroicons/outline";
+import { useLogout } from "../hooks/useLogout";
 
 const Dashboard = () => {
+  const { logout } = useLogout();
   return (
     <SafeAreaView style={styles.SignInScreen}>
       <ScrollView style={styles.scrollContainer}>
@@ -20,7 +22,13 @@ const Dashboard = () => {
             </View>
           </View>
           <View style={styles.notificationClass}>
-            <BellIcon size={22} color="#26667E" />
+            <BellIcon 
+              size={22} 
+              color="#26667E" 
+              onPress={() => {
+                logout();
+              }}
+            />
           </View>
         </View>
         <View style={styles.DashboardContainer}>

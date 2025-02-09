@@ -13,10 +13,50 @@ import {
   UserIcon,
 } from "react-native-heroicons/outline";
 import { useNavigation } from "expo-router";
+import { useAuthContext } from "../hooks/useAuthContext.jsx";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Config from "../config.jsx";
 
 const index = () => {
   const navigation = useNavigation();
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [userName, setUserName] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const { dispatch } = useAuthContext();
+
+  const handleLogin = async () => {
+    setError("");
+    try {
+      const response = await fetch(`${Config.API_URL}/auth/client/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identifier: userName,
+          password: password,
+        }),
+      });
+
+      const json = await response.json();
+
+      if (!response.ok) {
+        setError(json.message);
+      } else {
+        await AsyncStorage.setItem("user", JSON.stringify(json));
+        dispatch({ type: "LOGIN", payload: json });
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "(tabs)" }],
+        });
+        setPassword("");
+        setUserName("");
+        setError("");
+      }
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+      console.log(err);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.SignInScreen}>
@@ -30,8 +70,8 @@ const index = () => {
               style={styles.textInput}
               placeholder="Username"
               placeholderTextColor="#888888"
-              // value={userName}
-              // onChangeText={setUserName}
+              value={userName}
+              onChangeText={setUserName}
             />
           </View>
           <View style={styles.justifyBetween}>
@@ -42,8 +82,8 @@ const index = () => {
                 placeholder="********"
                 placeholderTextColor="#888888"
                 secureTextEntry={!passwordVisible}
-                // value={password}
-                // onChangeText={setPassword}
+                value={password}
+                onChangeText={setPassword}
               />
             </View>
             <TouchableOpacity
@@ -62,9 +102,19 @@ const index = () => {
             our Privacy Policy
           </Text>
         </View>
+        <Text
+          style={{
+            display: error ? "flex" : "none",
+            textAlign: "center",
+            color: "red",
+            width: "100%",
+          }}
+        >
+          {error}
+        </Text>
         <TouchableOpacity
           style={styles.loginButton}
-          onPress={() => navigation.navigate("(tabs)")}
+          onPress={handleLogin}
         >
           <Text style={styles.loginButtonText}>Login</Text>
         </TouchableOpacity>
