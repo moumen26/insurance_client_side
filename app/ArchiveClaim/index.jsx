@@ -98,14 +98,9 @@ const ArchiveClaim = ({ navigation }) => {
   
   return (
     <SafeAreaView style={styles.container}>
-      <View className="mx-5 mb-[20] flex-row items-center justify-between"
-      style={styles.topScreen}>
-        <View style={styles.Vide}></View>
-        <Text className="text-center" style={styles.welcomeBack}>
-          My archive
-        </Text>
-        <ArchiveButton />
-      </View>
+      <Text className="text-center" style={styles.welcomeBack}>
+        My archive
+      </Text>
       {/* If loading, show a loading message */}
       {AllArchiveClaimsDataLoading ? (
         <View style={styles.loadingClass}>
