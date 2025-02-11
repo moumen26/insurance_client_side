@@ -15,9 +15,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Image,
+  Alert,
 } from "react-native";
 import SelectOption from "../components/SelectOption";
-
 import { LinearGradient } from "expo-linear-gradient";
 import ProtectedScreen from "../util/ProtectedScreen";
 import useAuthContext from "../hooks/useAuthContext";
@@ -25,6 +26,8 @@ import decodeJWT from "../util/tokenDecoder";
 import Config from "../config.jsx";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
+import * as DocumentPicker from "expo-document-picker";
+import { Ionicons } from '@expo/vector-icons';
 
 // Axios instance for base URL configuration
 const api = axios.create({
@@ -42,6 +45,29 @@ const TabLayout = () => {
   const [showSelectOption, setShowSelectOption] = useState(false);
   const [selectedMedicalServiceOption, setSelectedMedicalServiceOption] = useState(null);
   const [claim_amount, setClaimAmount] = useState(0);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [error, setError] = useState("");
+  const [submitionLoading, setSubmitionLoading] = useState(false);
+  
+  // Function to handle image selection
+  const handleFilePicker = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "*/*", // This allows all file types
+        multiple: true, // Enable multiple file selection
+        copyToCacheDirectory: true,
+      });
+  
+      if (result.canceled) {
+        console.log("User cancelled file picker");
+      } else {
+        setSelectedImages(result.assets);  // Store selected files
+      }
+    } catch (err) {
+      console.error("Error picking file:", err);
+      Alert.alert("Error", "Could not pick file. Please try again.");
+    }
+  };
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -66,6 +92,11 @@ const TabLayout = () => {
     setClaimDetails(""); // Reset input on close
   };
 
+  const handleDelete = (fileToDelete) => {
+    setSelectedImages((prevImages) =>
+      prevImages.filter((file) => file.name !== fileToDelete.name)
+    );
+  };
 
   //--------------------------------------------APIs--------------------------------------------
   // Function to fetch medical services data
@@ -110,37 +141,48 @@ const TabLayout = () => {
     refetchOnWindowFocus: true, // Optional: refetching on window focus for React Native
   });
   
-  const [userName, setUserName] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const { dispatch } = useAuthContext();
-
   const handleNewClaim = async () => {
-    setError("");
+    setError("");    
+    setSubmitionLoading(true);
     try {
+      // Create FormData object
+      const formData = new FormData();
+  
+      // Append claim data
+      formData.append("medicalservice", selectedMedicalServiceOption?.id);
+      formData.append("claim_amount", claim_amount);
+  
+      // Append files
+      selectedImages?.forEach((file, index) => {
+        formData.append("files", {
+          uri: file.uri,
+          type: file.mimeType,
+          name: file.name || `file_${index}`,
+        });
+      });
+      
       const response = await fetch(`${Config.API_URL}/claim/client/new/${decodedToken?.id}`, {
         method: "POST",
         headers: { 
-          "Content-Type": "application/json", 
           Authorization: `Bearer ${user.token}`,
         },
-        body: JSON.stringify({
-          medicalservice: selectedMedicalServiceOption?.id,
-          claim_amount: claim_amount,
-        }),
+        body: formData,
       });
 
       const json = await response.json();
 
       if (!response.ok) {
         setError(json.message);
+        setSubmitionLoading(false);
       } else {
         //close modal
+        setSubmitionLoading(false);
         setModalVisible(false);
         alert(json.message);
         setError("");
       }
     } catch (err) {
+      setSubmitionLoading(false);
       setError("Something went wrong. Please try again.");
       console.log(err);
     }
@@ -218,7 +260,7 @@ const TabLayout = () => {
         animationType="fade"
         onRequestClose={handleModalClose}
       >
-        {!AllMedicalServicesDataLoading ?
+        {(!AllMedicalServicesDataLoading && !submitionLoading) ?
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Add New Claim</Text>
@@ -256,6 +298,23 @@ const TabLayout = () => {
                   onChangeText={setClaimAmount}
                 />
               </View>
+
+              <TouchableOpacity onPress={handleFilePicker} style={styles.imagePickerButton}>
+                <Text style={styles.imagePickerText}>Select Files</Text>
+              </TouchableOpacity>
+
+              {/* Display Selected Images */}
+              <View style={styles.filePreviewContainer}>
+              {selectedImages.map((file, index) => (
+                <View key={index} style={styles.card}>
+                  <Text style={styles.fileName}>{file.name}</Text>
+                  <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(file)}>
+                    <Ionicons name="trash-outline" size={15} color="red" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+              
               <Text
                 style={{
                   display: error ? "flex" : "none",
@@ -422,6 +481,25 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 15,
+  },
+  filePreviewContainer: {
+    padding: 10,
+  },
+  card: {
+    width: "100%",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    marginVertical: 5,
+    borderRadius: 10,
+    borderColor: '#000',
+    borderWidth: 0.5,
+  },
+  fileName: {
+    color: '#000',
+    fontSize: 10,
   },
 });
 
