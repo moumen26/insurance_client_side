@@ -33,6 +33,8 @@ const ClaimSubmissionScreen = ({ navigation }) => {
   const decodedToken = decodeJWT(user?.token);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedClaimData, setSelectedClaimData] = useState(null);
+  const [error, setError] = useState("");
+  const [submitionLoading, setSubmitionLoading] = useState(false);
 
   const handleAddButtonPress = (item) => {
     setSelectedClaimData(item);
@@ -112,6 +114,39 @@ const ClaimSubmissionScreen = ({ navigation }) => {
     refetchOnWindowFocus: true, // Optional: refetching on window focus for React Native
   });
   
+  const handleConfirmPayment = async (val) => {
+    setError("");    
+    setSubmitionLoading(true);
+    try {
+      const response = await fetch(`${Config.API_URL}/claim/client/confirm/${decodedToken?.id}`, {
+        method: "PATCH",
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({
+          claim: selectedClaimData?.id,
+          payment: val,
+        }),
+      });
+
+      const json = await response.json();
+
+      if (!response.ok) {
+        setError(json.message);
+        setSubmitionLoading(false);
+      } else {
+        AllClaimsDataRefetch();
+        handleModalClose();
+        setSubmitionLoading(false);
+        setError("");
+      }
+    } catch (err) {
+      setSubmitionLoading(false);
+      setError("Something went wrong. Please try again.");
+      console.log(err);
+    }
+  };
   return (
     <SafeAreaView style={styles.container}>
       <View className="mx-5 mb-[20] flex-row items-center justify-between"
@@ -159,27 +194,34 @@ const ClaimSubmissionScreen = ({ navigation }) => {
                   <Text style={styles.claimModalTitle}>Details:</Text>
                   <Text style={styles.claimText}>Service : {selectedClaimData?.medicalServiceAssociation?.userAssociation?.fullname}</Text>
                   <Text style={styles.claimAmount}>
-                    Claim Amount : {selectedClaimData?.claim_amount} DA
+                    Claim amount : {selectedClaimData?.claim_amount} DA
                   </Text>
-                  {selectedClaimData?.status == 'paid' &&
-                    <Text style={styles.claimAmount}>
-                      Reimbursement : {selectedClaimData?.reimbursement || 0} DA
-                    </Text>
-                  }
+                  <Text style={styles.claimAmount}>
+                    Reimbursement : {(Number(selectedClaimData?.clientAssociation?.policyAssociation?.co_pay) * Number(selectedClaimData?.claim_amount)) / 100 || 0} DA / {selectedClaimData?.clientAssociation?.policyAssociation?.co_pay}%
+                  </Text>
                   
                   {/* Display payments */}
                   {selectedClaimData?.status != "pending" &&
                     <>
                       <Text style={styles.claimModalTitle}>Payments:</Text>
+                      <Text style={styles.claimAmount}>
+                        Total payment: {selectedClaimData?.reimbursement || 0} DA
+                      </Text>
                       {selectedClaimData?.payments?.length > 0 ?
                         <View style={styles.filePreviewContainer}>
                           {selectedClaimData?.payments?.map((item, index) => (
                             <View key={index} style={styles.card}>
                               <Text style={styles.paymentText}>{item.amount} DA</Text>
                               {!item.validation ?
-                                <TouchableOpacity>
-                                  <AntDesign name="checkcircleo" size={15} color="red" />
-                                </TouchableOpacity>
+                                (!submitionLoading ?
+                                  <TouchableOpacity onPress={() => handleConfirmPayment(item.id)}>
+                                    <AntDesign name="checkcircleo" size={15} color="red"/>
+                                  </TouchableOpacity>
+                                  :
+                                  <TouchableOpacity>
+                                    <AntDesign name="checkcircleo" size={15} color="gray" disabled />
+                                  </TouchableOpacity>
+                                )
                                 :
                                 <TouchableOpacity>
                                   <AntDesign name="checkcircle" size={15} color="green" />

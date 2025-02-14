@@ -69,9 +69,6 @@ const Dashboard = () => {
     refetchOnWindowFocus: true, // Optional: refetching on window focus for React Native
   });
   
-  if (StatisticsDataLoading) {
-    return <Text>Loading...</Text>;
-  }
   return (
     <SafeAreaView style={styles.SignInScreen}>
       <ScrollView style={styles.scrollContainer}>

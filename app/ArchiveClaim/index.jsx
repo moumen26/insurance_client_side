@@ -6,6 +6,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   SafeAreaView,
+  Modal,
+  TextInput
 } from "react-native";
 import ShimmerPlaceholder from "react-native-shimmer-placeholder";
 import useAuthContext from "../hooks/useAuthContext";
@@ -16,6 +18,7 @@ import axios from "axios";
 import ProtectedScreen from "../util/ProtectedScreen";
 import { formatDate } from "../util/useFullFunctions";
 import ArchiveButton from "../components/ArchiveButton.jsx";
+import AntDesign from '@expo/vector-icons/AntDesign';
 
 // Axios instance for base URL configuration
 const api = axios.create({
@@ -28,11 +31,26 @@ const api = axios.create({
 const ArchiveClaim = ({ navigation }) => {
   const { user } = useAuthContext();
   const decodedToken = decodeJWT(user?.token);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedClaimData, setSelectedClaimData] = useState(null);
+  const [error, setError] = useState("");
+  const [submitionLoading, setSubmitionLoading] = useState(false);
+  const [accusation, setAccusation] = useState("");
+
+  const handleAddButtonPress = (item) => {
+    setSelectedClaimData(item);
+    setModalVisible(true);
+  };
+
+  const handleModalClose = () => {
+    setSelectedClaimData(null);
+    setModalVisible(false);
+  };
 
   const renderClaimItem = ({ item }) => (
     <TouchableOpacity
       style={styles.claimCard}
-      onPress={() => alert("Claim details")}
+      onPress={() => handleAddButtonPress(item)}
     >
       <Text style={styles.claimTitle}>Claim #{item?.id}</Text>
       <Text style={styles.claimText}>Service Type: {item?.medicalServiceAssociation?.userAssociation?.fullname}</Text>
@@ -95,6 +113,40 @@ const ArchiveClaim = ({ navigation }) => {
     refetchInterval: 1000, // Refetch every 10 seconds
     refetchOnWindowFocus: true, // Optional: refetching on window focus for React Native
   });
+
+  const handleAddAccusation = async () => {
+    setError("");    
+    setSubmitionLoading(true);
+    try {
+      const response = await fetch(`${Config.API_URL}/accusation/create/${decodedToken?.id}`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({
+          justification: selectedClaimData?.justification?.id,
+          description: accusation,
+        }),
+      });
+
+      const json = await response.json();
+
+      if (!response.ok) {
+        setError(json.message);
+        setSubmitionLoading(false);
+      } else {
+        AllArchiveClaimsDataRefetch();
+        handleModalClose();
+        setSubmitionLoading(false);
+        setError("");
+      }
+    } catch (err) {
+      setSubmitionLoading(false);
+      setError("Something went wrong. Please try again.");
+      console.log(err);
+    }
+  };
   
   return (
     <SafeAreaView style={styles.container}>
@@ -121,6 +173,124 @@ const ArchiveClaim = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
         />
       )}
+      {/* Modal for Adding New Claim */}
+      <Modal
+        transparent={true}
+        visible={modalVisible}
+        animationType="fade"
+        onRequestClose={handleModalClose}
+      >
+        {(!AllArchiveClaimsDataLoading) ?
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Claim #{selectedClaimData?.id}</Text>              
+                <Text style={styles.claimDate}>{formatDate(selectedClaimData?.date)}</Text>
+                <Text style={styles.claimStatus}>Status: {selectedClaimData?.status}</Text>
+                <View style={styles.filePreviewContainer}>
+                  <Text style={styles.claimModalTitle}>Details:</Text>
+                  <Text style={styles.claimText}>Service : {selectedClaimData?.medicalServiceAssociation?.userAssociation?.fullname}</Text>
+                  <Text style={styles.claimAmount}>
+                    Claim amount : {selectedClaimData?.claim_amount} DA
+                  </Text>
+                  <Text style={styles.claimAmount}>
+                    Reimbursement : {(Number(selectedClaimData?.clientAssociation?.policyAssociation?.co_pay) * Number(selectedClaimData?.claim_amount)) / 100 || 0} DA / {selectedClaimData?.clientAssociation?.policyAssociation?.co_pay}%
+                  </Text>
+                  
+                  {/* Display payments */}
+                  {selectedClaimData?.status == "paid" &&
+                    <>
+                      <Text style={styles.claimModalTitle}>Payments:</Text>
+                      <Text style={styles.claimAmount}>
+                        Total payment: {selectedClaimData?.reimbursement || 0} DA
+                      </Text>
+                      {selectedClaimData?.payments?.length > 0 ?
+                        <View style={styles.filePreviewContainer}>
+                          {selectedClaimData?.payments?.map((item, index) => (
+                            <View key={index} style={styles.card}>
+                              <Text style={styles.paymentText}>{item.amount} DA</Text>
+                              <TouchableOpacity>
+                                <AntDesign name="checkcircle" size={15} color="green" />
+                              </TouchableOpacity>
+                            </View>
+                          ))}
+                        </View>
+                        :
+                        <Text style={styles.claimText}>No payments yet</Text>
+                      }
+                    </>
+                  }
+                  {/* Display justification */}
+                  {selectedClaimData?.status == "rejected" &&
+                    <>
+                      <Text style={styles.claimModalTitle}>Justification:</Text>
+                      <Text style={styles.claimText}>{selectedClaimData?.justification?.description}</Text>
+                    </>
+                  }
+                  {/* Display accusation */}
+                  {selectedClaimData?.status == "rejected" &&
+                    <>
+                      <Text style={styles.claimModalTitle}>Accusation:</Text>
+                      {!selectedClaimData?.accusation ?
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Enter your accusation"
+                          value={accusation}
+                          onChangeText={(text) => setAccusation(text)}
+                        />
+                        :
+                        <Text style={styles.claimText}>{selectedClaimData?.accusation?.description}</Text>
+                      }
+                    </>
+                  }
+                </View>
+              {selectedClaimData?.status == "rejected" && !selectedClaimData?.accusation &&
+                <>
+                  <Text
+                    style={{
+                      display: error ? "flex" : "none",
+                      textAlign: "center",
+                      color: "red",
+                      width: "100%",
+                    }}
+                  >
+                    {error}
+                  </Text>
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity
+                      style={styles.cancelButtonV2}
+                      onPress={() => setModalVisible(false)}
+                    >
+                      <Text style={styles.buttonTextCancel}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.saveButton}
+                      onPress={handleAddAccusation}  
+                    >
+                      <Text 
+                        style={styles.buttonText}
+                      >Save</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              }
+              {(selectedClaimData?.status == "paid" || (selectedClaimData?.status == "rejected" && selectedClaimData?.accusation)) &&
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => setModalVisible(false)}
+                  >
+                    <Text style={styles.buttonTextCancel}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              }
+            </View>
+          </View>
+          :
+          <View style={styles.modalOverlay}>
+            <Text>Loading...</Text>
+          </View>
+        }
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -339,6 +509,105 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
   },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    width: "80%",
+    backgroundColor: "white",
+    padding: 20,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: "Montserrat-Bold",
+  },
+  inputLabel: {
+    fontSize: 16,
+    marginBottom: 8,
+    color: "#000",
+    alignSelf: "flex-start",
+    fontFamily: "Montserrat-Medium",
+  },
+  textlabel: {
+    fontSize: 14,
+    color: "#000",
+  },
+  input: {
+    width: "100%",
+    height: 40,
+    borderColor: "#ccc",
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    marginBottom: 20,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  cancelButton: {
+    backgroundColor: "#f1f1f1",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    width: "100%",
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cancelButtonV2: {
+    backgroundColor: "#f1f1f1",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+  },
+  saveButton: {
+    backgroundColor: "#043146",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+  },
+  buttonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "300",
+  },
+  buttonTextCancel: {
+    color: "#043146",
+    fontSize: 16,
+    fontWeight: "300",
+  },
+  filePreviewContainer: {
+    padding: 10,
+  },
+  card: {
+    width: "100%",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    marginVertical: 5,
+    borderRadius: 10,
+    borderColor: '#000',
+    borderWidth: 0.5,
+  },
+  paymentText: {
+    color: '#000',
+    fontSize: 16,
+  },
+  claimModalTitle:{
+    fontSize: 15,
+    fontFamily: "Montserrat-SemiBold",
+    marginTop: 5,
+  }
 });
 
 export default ArchiveClaim;
