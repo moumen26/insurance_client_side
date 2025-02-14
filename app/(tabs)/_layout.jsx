@@ -89,7 +89,6 @@ const TabLayout = () => {
 
   const handleModalClose = () => {
     setModalVisible(false);
-    setClaimDetails(""); // Reset input on close
   };
 
   const handleDelete = (fileToDelete) => {
@@ -305,15 +304,15 @@ const TabLayout = () => {
 
               {/* Display Selected Images */}
               <View style={styles.filePreviewContainer}>
-              {selectedImages.map((file, index) => (
-                <View key={index} style={styles.card}>
-                  <Text style={styles.fileName}>{file.name}</Text>
-                  <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(file)}>
-                    <Ionicons name="trash-outline" size={15} color="red" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
+                {selectedImages.map((file, index) => (
+                  <View key={index} style={styles.card}>
+                    <Text style={styles.fileName}>{file.name}</Text>
+                    <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(file)}>
+                      <Ionicons name="trash-outline" size={15} color="red" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
               
               <Text
                 style={{

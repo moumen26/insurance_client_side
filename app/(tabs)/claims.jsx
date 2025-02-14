@@ -6,6 +6,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   SafeAreaView,
+  Modal,
+  TextInput
 } from "react-native";
 import ShimmerPlaceholder from "react-native-shimmer-placeholder";
 import useAuthContext from "../hooks/useAuthContext";
@@ -16,6 +18,7 @@ import axios from "axios";
 import ProtectedScreen from "../util/ProtectedScreen";
 import { formatDate } from "../util/useFullFunctions";
 import ArchiveButton from "../components/ArchiveButton.jsx";
+import AntDesign from '@expo/vector-icons/AntDesign';
 
 // Axios instance for base URL configuration
 const api = axios.create({
@@ -28,11 +31,24 @@ const api = axios.create({
 const ClaimSubmissionScreen = ({ navigation }) => {
   const { user } = useAuthContext();
   const decodedToken = decodeJWT(user?.token);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedClaimData, setSelectedClaimData] = useState(null);
+
+  const handleAddButtonPress = (item) => {
+    setSelectedClaimData(item);
+    setModalVisible(true);
+  };
+
+  const handleModalClose = () => {
+    setSelectedClaimData(null);
+    setModalVisible(false);
+  };
+
 
   const renderClaimItem = ({ item }) => (
     <TouchableOpacity
       style={styles.claimCard}
-      onPress={() => alert("Claim details")}
+      onPress={() => handleAddButtonPress(item)}
     >
       <Text style={styles.claimTitle}>Claim #{item?.id}</Text>
       <Text style={styles.claimText}>Service Type: {item?.medicalServiceAssociation?.userAssociation?.fullname}</Text>
@@ -126,6 +142,75 @@ const ClaimSubmissionScreen = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
         />
       )}
+      {/* Modal for Adding New Claim */}
+      <Modal
+        transparent={true}
+        visible={modalVisible}
+        animationType="fade"
+        onRequestClose={handleModalClose}
+      >
+        {(!AllClaimsDataLoading) ?
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Claim #{selectedClaimData?.id}</Text>              
+                <Text style={styles.claimDate}>{formatDate(selectedClaimData?.date)}</Text>
+                <Text style={styles.claimStatus}>Status: {selectedClaimData?.status}</Text>
+                <View style={styles.filePreviewContainer}>
+                  <Text style={styles.claimModalTitle}>Details:</Text>
+                  <Text style={styles.claimText}>Service : {selectedClaimData?.medicalServiceAssociation?.userAssociation?.fullname}</Text>
+                  <Text style={styles.claimAmount}>
+                    Claim Amount : {selectedClaimData?.claim_amount} DA
+                  </Text>
+                  {selectedClaimData?.status == 'paid' &&
+                    <Text style={styles.claimAmount}>
+                      Reimbursement : {selectedClaimData?.reimbursement || 0} DA
+                    </Text>
+                  }
+                  
+                  {/* Display payments */}
+                  {selectedClaimData?.status != "pending" &&
+                    <>
+                      <Text style={styles.claimModalTitle}>Payments:</Text>
+                      {selectedClaimData?.payments?.length > 0 ?
+                        <View style={styles.filePreviewContainer}>
+                          {selectedClaimData?.payments?.map((item, index) => (
+                            <View key={index} style={styles.card}>
+                              <Text style={styles.paymentText}>{item.amount} DA</Text>
+                              {!item.validation ?
+                                <TouchableOpacity>
+                                  <AntDesign name="checkcircleo" size={15} color="red" />
+                                </TouchableOpacity>
+                                :
+                                <TouchableOpacity>
+                                  <AntDesign name="checkcircle" size={15} color="green" />
+                                </TouchableOpacity>
+                              }
+                            </View>
+                          ))}
+                        </View>
+                        :
+                        <Text style={styles.claimText}>No payments yet</Text>
+                      }
+                    </>
+                  }
+                </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Text style={styles.buttonTextCancel}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+          :
+          <View style={styles.modalOverlay}>
+            <Text>Loading...</Text>
+          </View>
+        }
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -344,6 +429,99 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
   },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    width: "80%",
+    backgroundColor: "white",
+    padding: 20,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: "Montserrat-Bold",
+  },
+  inputLabel: {
+    fontSize: 16,
+    marginBottom: 8,
+    color: "#000",
+    alignSelf: "flex-start",
+    fontFamily: "Montserrat-Medium",
+  },
+  textlabel: {
+    fontSize: 14,
+    color: "#000",
+  },
+  input: {
+    width: "100%",
+    height: 40,
+    borderColor: "#ccc",
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    marginBottom: 20,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  cancelButton: {
+    backgroundColor: "#f1f1f1",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    width: "100%",
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  saveButton: {
+    backgroundColor: "#043146",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+  },
+  buttonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "300",
+  },
+  buttonTextCancel: {
+    color: "#043146",
+    fontSize: 16,
+    fontWeight: "300",
+  },
+  filePreviewContainer: {
+    padding: 10,
+  },
+  card: {
+    width: "100%",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    marginVertical: 5,
+    borderRadius: 10,
+    borderColor: '#000',
+    borderWidth: 0.5,
+  },
+  paymentText: {
+    color: '#000',
+    fontSize: 16,
+  },
+  claimModalTitle:{
+    fontSize: 15,
+    fontFamily: "Montserrat-SemiBold",
+    marginTop: 5,
+  }
 });
 
 export default ClaimSubmissionScreen;
